@@ -1,40 +1,56 @@
 const video = document.querySelector(".input_video");
-const drawCanvas = document.getElementById("drawCanvas");
 const fxCanvas = document.getElementById("fxCanvas");
-const drawCtx = drawCanvas.getContext("2d");
+const drawCanvas = document.getElementById("drawCanvas");
 const fxCtx = fxCanvas.getContext("2d");
+const drawCtx = drawCanvas.getContext("2d");
 const modeUI = document.getElementById("mode");
 
-drawCanvas.width = fxCanvas.width = window.innerWidth;
-drawCanvas.height = fxCanvas.height = window.innerHeight;
+/* Resize handling (VERY IMPORTANT on mobile) */
+function resizeCanvas() {
+  fxCanvas.width = drawCanvas.width = window.innerWidth;
+  fxCanvas.height = drawCanvas.height = window.innerHeight;
+}
+window.addEventListener("resize", resizeCanvas);
+resizeCanvas();
 
-let MODE = "PATTERN"; // PATTERN | DRAW | PAUSE
+/* App state */
+let MODE = "PATTERN"; // PATTERN | DRAW
 let lastX = null, lastY = null;
 let pinchActive = false;
 
+/* MediaPipe Hands */
 const hands = new Hands({
   locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
 });
 
 hands.setOptions({
   maxNumHands: 1,
+  modelComplexity: 1,
   minDetectionConfidence: 0.7,
   minTrackingConfidence: 0.7
 });
 
 hands.onResults(onResults);
 
+/* Camera */
 const camera = new Camera(video, {
-  onFrame: async () => await hands.send({ image: video }),
+  onFrame: async () => {
+    try {
+      await hands.send({ image: video });
+    } catch (e) {
+      console.error(e);
+    }
+  },
   width: 640,
   height: 480
 });
 camera.start();
 
+/* Main logic */
 function onResults(results) {
-  fxCtx.clearRect(0,0,fxCanvas.width,fxCanvas.height);
+  fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
 
-  if (!results.multiHandLandmarks || MODE === "PAUSE") return;
+  if (!results.multiHandLandmarks) return;
 
   const lm = results.multiHandLandmarks[0];
   const index = lm[8];
@@ -44,32 +60,32 @@ function onResults(results) {
   const x = index.x * fxCanvas.width;
   const y = index.y * fxCanvas.height;
 
-  // PINCH DETECTION
-  const pinchDist = Math.hypot(index.x-thumb.x, index.y-thumb.y);
+  /* Pinch detection */
+  const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
 
-  if (pinchDist < 0.05 && !pinchActive) {
+  if (pinchDist < 0.06 && !pinchActive) {
     pinchActive = true;
     MODE = MODE === "DRAW" ? "PATTERN" : "DRAW";
   }
-  if (pinchDist > 0.08) pinchActive = false;
+  if (pinchDist > 0.09) pinchActive = false;
 
-  modeUI.innerText = "MODE: " + MODE;
+  modeUI.textContent = `MODE: ${MODE}`;
 
-  if (MODE === "DRAW") drawAir(x,y);
-  if (MODE === "PATTERN") patternFX(x,y,middle);
+  if (MODE === "DRAW") airDraw(x, y);
+  if (MODE === "PATTERN") drawPattern(x, y, middle.y);
 }
 
-// ✍️ AIR DRAWING
-function drawAir(x,y) {
-  drawCtx.strokeStyle = "rgba(0,255,255,0.8)";
+/* ✍️ Air Drawing */
+function airDraw(x, y) {
+  drawCtx.strokeStyle = "rgba(0,255,255,0.85)";
   drawCtx.lineWidth = 3;
   drawCtx.shadowColor = "cyan";
-  drawCtx.shadowBlur = 10;
+  drawCtx.shadowBlur = 12;
 
   if (lastX !== null) {
     drawCtx.beginPath();
-    drawCtx.moveTo(lastX,lastY);
-    drawCtx.lineTo(x,y);
+    drawCtx.moveTo(lastX, lastY);
+    drawCtx.lineTo(x, y);
     drawCtx.stroke();
   }
 
@@ -77,27 +93,20 @@ function drawAir(x,y) {
   lastY = y;
 }
 
-// 🎨 PATTERN GENERATOR
-function patternFX(x,y,middle) {
-  const speed = Math.abs(middle.y - 0.5);
+/* 🎨 Pattern Generator */
+function drawPattern(x, y, intensity) {
+  const size = 60 + intensity * 120;
 
-  fxCtx.strokeStyle = `rgba(0,255,255,${0.2+speed})`;
+  fxCtx.strokeStyle = `rgba(0,255,255,${0.2 + intensity})`;
   fxCtx.lineWidth = 2;
-  fxCtx.shadowBlur = 20;
   fxCtx.shadowColor = "cyan";
+  fxCtx.shadowBlur = 25;
 
-  fxCtx.strokeRect(
-    x-40-speed*80,
-    y-40-speed*80,
-    80+speed*160,
-    80+speed*160
-  );
+  fxCtx.strokeRect(x - size / 2, y - size / 2, size, size);
 }
 
-// CLEAR CANVAS (OPEN PALM HOLD)
-setInterval(()=>{
-  if (MODE === "PATTERN") {
-    drawCtx.fillStyle = "rgba(0,0,0,0.05)";
-    drawCtx.fillRect(0,0,drawCanvas.width,drawCanvas.height);
-  }
-},40);
+/* Soft fade effect */
+setInterval(() => {
+  drawCtx.fillStyle = "rgba(0,0,0,0.04)";
+  drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
+}, 40);
