@@ -8,7 +8,7 @@ canvas.height = window.innerHeight;
 // ================= MEMORY =================
 let strokes = [];
 let currentStroke = [];
-let erasing = false;
+let isDrawing = false;
 
 // ================= MEDIAPIPE =================
 const hands = new Hands({
@@ -28,7 +28,11 @@ function isFingerOpen(tip, pip) {
   return tip.y < pip.y;
 }
 
-// ================= DRAW SMOOTH STROKE =================
+function distance(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+// ================= SMOOTH DRAW =================
 function drawSmoothStroke(points) {
   if (points.length < 2) return;
 
@@ -38,14 +42,8 @@ function drawSmoothStroke(points) {
   for (let i = 1; i < points.length - 1; i++) {
     const midX = (points[i].x + points[i + 1].x) / 2;
     const midY = (points[i].y + points[i + 1].y) / 2;
-    ctx.quadraticCurveTo(
-      points[i].x,
-      points[i].y,
-      midX,
-      midY
-    );
+    ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
   }
-
   ctx.stroke();
 }
 
@@ -62,12 +60,12 @@ function redrawCanvas() {
   drawSmoothStroke(currentStroke);
 }
 
-// ================= ERASE AREA =================
+// ================= ERASE =================
 function eraseAt(x, y) {
   ctx.save();
   ctx.globalCompositeOperation = "destination-out";
   ctx.beginPath();
-  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.arc(x, y, 28, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -75,10 +73,11 @@ function eraseAt(x, y) {
 // ================= MAIN =================
 hands.onResults(results => {
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
-    if (currentStroke.length > 0) {
+    if (isDrawing && currentStroke.length > 0) {
       strokes.push([...currentStroke]);
-      currentStroke = [];
     }
+    currentStroke = [];
+    isDrawing = false;
     redrawCanvas();
     return;
   }
@@ -96,44 +95,55 @@ hands.onResults(results => {
   const ringPip = lm[14];
   const pinkyPip = lm[18];
 
-  // Palm center (for eraser)
-  const palmX = lm[9].x * canvas.width;
-  const palmY = lm[9].y * canvas.height;
-
   const x = index.x * canvas.width;
   const y = index.y * canvas.height;
 
-  // Finger states
-  const allFingersOpen =
+  const palmX = lm[9].x * canvas.width;
+  const palmY = lm[9].y * canvas.height;
+
+  // Fingers open
+  const fingersOpen =
     isFingerOpen(index, indexPip) &&
     isFingerOpen(middle, middlePip) &&
     isFingerOpen(ring, ringPip) &&
     isFingerOpen(pinky, pinkyPip);
 
-  const pinchDistance = Math.hypot(
-    index.x - thumb.x,
-    index.y - thumb.y
-  );
+  // Fingers close together (eraser condition)
+  const fingersClose =
+    distance(index, middle) < 0.04 &&
+    distance(middle, ring) < 0.04 &&
+    distance(ring, pinky) < 0.04;
 
-  // ✏️ DRAW (PINCH)
-  if (pinchDistance < 0.05 && !allFingersOpen) {
-    currentStroke.push({ x, y });
-    erasing = false;
+  const pinchDistance = distance(index, thumb);
+
+  // ✏️ DRAW — ONLY WHILE PINCH IS CLOSED
+  if (pinchDistance < 0.045 && !fingersOpen) {
+    if (!isDrawing) {
+      // Start new stroke EXACTLY at pinch point
+      currentStroke = [{ x, y }];
+      isDrawing = true;
+    } else {
+      currentStroke.push({ x, y });
+    }
   }
 
-  // ✋ ERASE (OPEN PALM RUB)
-  else if (allFingersOpen) {
-    erasing = true;
+  // ✋ ERASE — OPEN PALM + FINGERS CLOSE
+  else if (fingersOpen && fingersClose) {
+    if (isDrawing && currentStroke.length > 0) {
+      strokes.push([...currentStroke]);
+      currentStroke = [];
+    }
+    isDrawing = false;
     eraseAt(palmX, palmY);
   }
 
   // ✊ STOP DRAWING
   else {
-    if (currentStroke.length > 0) {
+    if (isDrawing && currentStroke.length > 0) {
       strokes.push([...currentStroke]);
-      currentStroke = [];
     }
-    erasing = false;
+    currentStroke = [];
+    isDrawing = false;
   }
 
   redrawCanvas();
