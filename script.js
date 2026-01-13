@@ -1,24 +1,18 @@
 const video = document.querySelector(".input_video");
-const fxCanvas = document.getElementById("fxCanvas");
-const drawCanvas = document.getElementById("drawCanvas");
-const fxCtx = fxCanvas.getContext("2d");
-const drawCtx = drawCanvas.getContext("2d");
-const modeUI = document.getElementById("mode");
+const canvas = document.getElementById("drawCanvas");
+const ctx = canvas.getContext("2d");
 const startBtn = document.getElementById("startBtn");
 const startScreen = document.getElementById("startScreen");
-const ui = document.getElementById("ui");
 
 function resize() {
-  fxCanvas.width = drawCanvas.width = window.innerWidth;
-  fxCanvas.height = drawCanvas.height = window.innerHeight;
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
 }
 window.addEventListener("resize", resize);
 resize();
 
-let MODE = "PATTERN";
-let lastX = null, lastY = null;
-let pinchActive = false;
-let camera;
+let lastX = null;
+let lastY = null;
 
 /* MediaPipe Hands */
 const hands = new Hands({
@@ -34,12 +28,11 @@ hands.setOptions({
 
 hands.onResults(onResults);
 
-/* START CAMERA ONLY AFTER USER TAP */
+/* START CAMERA AFTER USER CLICK */
 startBtn.addEventListener("click", () => {
   startScreen.style.display = "none";
-  ui.hidden = false;
 
-  camera = new Camera(video, {
+  const camera = new Camera(video, {
     onFrame: async () => {
       await hands.send({ image: video });
     },
@@ -50,51 +43,34 @@ startBtn.addEventListener("click", () => {
   camera.start();
 });
 
+/* MAIN DRAW FUNCTION */
 function onResults(results) {
-  fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
-  if (!results.multiHandLandmarks) return;
-
-  const lm = results.multiHandLandmarks[0];
-  const index = lm[8];
-  const thumb = lm[4];
-
-  const x = index.x * fxCanvas.width;
-  const y = index.y * fxCanvas.height;
-
-  const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
-
-  if (pinchDist < 0.06 && !pinchActive) {
-    pinchActive = true;
-    MODE = MODE === "DRAW" ? "PATTERN" : "DRAW";
+  if (!results.multiHandLandmarks) {
+    lastX = lastY = null;
+    return;
   }
-  if (pinchDist > 0.09) pinchActive = false;
 
-  modeUI.textContent = "MODE: " + MODE;
+  const landmarks = results.multiHandLandmarks[0];
+  const indexFinger = landmarks[8];
 
-  if (MODE === "DRAW") drawAir(x, y);
-  if (MODE === "PATTERN") drawBox(x, y);
-}
+  // Convert to screen coordinates
+  const x = indexFinger.x * canvas.width;
+  const y = indexFinger.y * canvas.height;
 
-function drawAir(x, y) {
-  drawCtx.strokeStyle = "rgba(0,255,255,0.9)";
-  drawCtx.lineWidth = 3;
-  drawCtx.shadowColor = "cyan";
-  drawCtx.shadowBlur = 12;
+  ctx.strokeStyle = "cyan";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.shadowColor = "cyan";
+  ctx.shadowBlur = 10;
 
   if (lastX !== null) {
-    drawCtx.beginPath();
-    drawCtx.moveTo(lastX, lastY);
-    drawCtx.lineTo(x, y);
-    drawCtx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(x, y);
+    ctx.stroke();
   }
+
   lastX = x;
   lastY = y;
-}
-
-function drawBox(x, y) {
-  fxCtx.strokeStyle = "rgba(0,255,255,0.6)";
-  fxCtx.lineWidth = 2;
-  fxCtx.shadowColor = "cyan";
-  fxCtx.shadowBlur = 25;
-  fxCtx.strokeRect(x - 50, y - 50, 100, 100);
 }
