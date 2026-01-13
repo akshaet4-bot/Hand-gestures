@@ -1,67 +1,24 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
 body {
-  background: radial-gradient(circle at top, #020617, #000);
-  overflow: hidden;
-  font-family: system-ui, sans-serif;
-  color: cyan;
+  text-align: center;
+  font-family: Arial, sans-serif;
+  background: #0f172a;
+  color: white;
+  margin: 0;
+  padding: 10px;
 }
 
-/* START SCREEN */
-#startScreen {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: black;
-  z-index: 10;
-}
-
-#startBtn {
-  padding: 16px 28px;
-  font-size: 16px;
-  border-radius: 30px;
-  border: none;
-  background: cyan;
-  color: black;
-  box-shadow: 0 0 30px cyan;
-}
-
-/* Camera */
-video {
-  position: fixed;
-  inset: 0;
+video, canvas {
   width: 100%;
-  height: 100%;
-  object-fit: cover;
-  opacity: 0.2;
-  z-index: 0;
+  max-width: 360px;
+  border-radius: 12px;
 }
 
-canvas {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-}
-
-#fxCanvas { z-index: 1; }
-#drawCanvas { z-index: 2; }
-
-#ui {
-  position: fixed;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
-  padding: 8px 22px;
-  border-radius: 20px;
-  background: rgba(0,255,255,0.1);
-  backdrop-filter: blur(14px);
-  border: 1px solid rgba(0,255,255,0.3);
-  box-shadow: 0 0 30px rgba(0,255,255,0.4);
-  z-index: 3;
+button {
+  margin-top: 15px;
+  padding: 12px 20px;
+  font-size: 16px;
+  border: none;
+  border-radius: 8px;
+  background: #22c55e;
+  color: black;
 }
