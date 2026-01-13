@@ -4,19 +4,21 @@ const drawCanvas = document.getElementById("drawCanvas");
 const fxCtx = fxCanvas.getContext("2d");
 const drawCtx = drawCanvas.getContext("2d");
 const modeUI = document.getElementById("mode");
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const ui = document.getElementById("ui");
 
-/* Resize handling (VERY IMPORTANT on mobile) */
-function resizeCanvas() {
+function resize() {
   fxCanvas.width = drawCanvas.width = window.innerWidth;
   fxCanvas.height = drawCanvas.height = window.innerHeight;
 }
-window.addEventListener("resize", resizeCanvas);
-resizeCanvas();
+window.addEventListener("resize", resize);
+resize();
 
-/* App state */
-let MODE = "PATTERN"; // PATTERN | DRAW
+let MODE = "PATTERN";
 let lastX = null, lastY = null;
 let pinchActive = false;
+let camera;
 
 /* MediaPipe Hands */
 const hands = new Hands({
@@ -32,35 +34,33 @@ hands.setOptions({
 
 hands.onResults(onResults);
 
-/* Camera */
-const camera = new Camera(video, {
-  onFrame: async () => {
-    try {
-      await hands.send({ image: video });
-    } catch (e) {
-      console.error(e);
-    }
-  },
-  width: 640,
-  height: 480
-});
-camera.start();
+/* START CAMERA ONLY AFTER USER TAP */
+startBtn.addEventListener("click", () => {
+  startScreen.style.display = "none";
+  ui.hidden = false;
 
-/* Main logic */
+  camera = new Camera(video, {
+    onFrame: async () => {
+      await hands.send({ image: video });
+    },
+    width: 640,
+    height: 480
+  });
+
+  camera.start();
+});
+
 function onResults(results) {
   fxCtx.clearRect(0, 0, fxCanvas.width, fxCanvas.height);
-
   if (!results.multiHandLandmarks) return;
 
   const lm = results.multiHandLandmarks[0];
   const index = lm[8];
   const thumb = lm[4];
-  const middle = lm[12];
 
   const x = index.x * fxCanvas.width;
   const y = index.y * fxCanvas.height;
 
-  /* Pinch detection */
   const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
 
   if (pinchDist < 0.06 && !pinchActive) {
@@ -69,15 +69,14 @@ function onResults(results) {
   }
   if (pinchDist > 0.09) pinchActive = false;
 
-  modeUI.textContent = `MODE: ${MODE}`;
+  modeUI.textContent = "MODE: " + MODE;
 
-  if (MODE === "DRAW") airDraw(x, y);
-  if (MODE === "PATTERN") drawPattern(x, y, middle.y);
+  if (MODE === "DRAW") drawAir(x, y);
+  if (MODE === "PATTERN") drawBox(x, y);
 }
 
-/* ✍️ Air Drawing */
-function airDraw(x, y) {
-  drawCtx.strokeStyle = "rgba(0,255,255,0.85)";
+function drawAir(x, y) {
+  drawCtx.strokeStyle = "rgba(0,255,255,0.9)";
   drawCtx.lineWidth = 3;
   drawCtx.shadowColor = "cyan";
   drawCtx.shadowBlur = 12;
@@ -88,25 +87,14 @@ function airDraw(x, y) {
     drawCtx.lineTo(x, y);
     drawCtx.stroke();
   }
-
   lastX = x;
   lastY = y;
 }
 
-/* 🎨 Pattern Generator */
-function drawPattern(x, y, intensity) {
-  const size = 60 + intensity * 120;
-
-  fxCtx.strokeStyle = `rgba(0,255,255,${0.2 + intensity})`;
+function drawBox(x, y) {
+  fxCtx.strokeStyle = "rgba(0,255,255,0.6)";
   fxCtx.lineWidth = 2;
   fxCtx.shadowColor = "cyan";
   fxCtx.shadowBlur = 25;
-
-  fxCtx.strokeRect(x - size / 2, y - size / 2, size, size);
+  fxCtx.strokeRect(x - 50, y - 50, 100, 100);
 }
-
-/* Soft fade effect */
-setInterval(() => {
-  drawCtx.fillStyle = "rgba(0,0,0,0.04)";
-  drawCtx.fillRect(0, 0, drawCanvas.width, drawCanvas.height);
-}, 40);
