@@ -7,34 +7,46 @@
 body {
   background: radial-gradient(circle at top, #020617, #000);
   overflow: hidden;
-  font-family: "Segoe UI", sans-serif;
+  font-family: system-ui, sans-serif;
   color: cyan;
 }
 
+/* Camera must be rendered for MediaPipe */
 video {
-  display: none;
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.18;
+  z-index: 0;
 }
 
+/* Canvas layers */
 canvas {
   position: fixed;
   inset: 0;
   pointer-events: none;
 }
 
+#fxCanvas { z-index: 1; }
+#drawCanvas { z-index: 2; }
+
 #ui {
   position: fixed;
-  top: 12px;
+  top: 14px;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(0, 255, 255, 0.08);
-  backdrop-filter: blur(12px);
-  border: 1px solid rgba(0,255,255,0.25);
+  padding: 8px 22px;
   border-radius: 20px;
-  padding: 8px 20px;
-  box-shadow: 0 0 25px rgba(0,255,255,0.35);
+  background: rgba(0,255,255,0.08);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(0,255,255,0.25);
+  box-shadow: 0 0 30px rgba(0,255,255,0.35);
+  z-index: 3;
 }
 
 #mode {
-  font-size: 14px;
+  font-size: 13px;
   letter-spacing: 1px;
 }
