@@ -5,13 +5,12 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// ================= DRAWING MEMORY =================
-let strokes = [];        // All saved drawings
-let currentStroke = []; // Current air-writing stroke
-let prevX = null;
-let prevY = null;
+// ================= MEMORY =================
+let strokes = [];
+let currentStroke = [];
+let erasing = false;
 
-// ================= MEDIAPIPE HANDS =================
+// ================= MEDIAPIPE =================
 const hands = new Hands({
   locateFile: file =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
@@ -29,44 +28,57 @@ function isFingerOpen(tip, pip) {
   return tip.y < pip.y;
 }
 
-// ================= REDRAW CANVAS =================
+// ================= DRAW SMOOTH STROKE =================
+function drawSmoothStroke(points) {
+  if (points.length < 2) return;
+
+  ctx.beginPath();
+  ctx.moveTo(points[0].x, points[0].y);
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const midX = (points[i].x + points[i + 1].x) / 2;
+    const midY = (points[i].y + points[i + 1].y) / 2;
+    ctx.quadraticCurveTo(
+      points[i].x,
+      points[i].y,
+      midX,
+      midY
+    );
+  }
+
+  ctx.stroke();
+}
+
+// ================= REDRAW =================
 function redrawCanvas() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  ctx.strokeStyle = "red";
+  ctx.strokeStyle = "black";
   ctx.lineWidth = 4;
   ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-  // Draw saved strokes
-  strokes.forEach(stroke => {
-    ctx.beginPath();
-    for (let i = 1; i < stroke.length; i++) {
-      ctx.moveTo(stroke[i - 1].x, stroke[i - 1].y);
-      ctx.lineTo(stroke[i].x, stroke[i].y);
-    }
-    ctx.stroke();
-  });
-
-  // Draw current stroke
-  if (currentStroke.length > 1) {
-    ctx.beginPath();
-    for (let i = 1; i < currentStroke.length; i++) {
-      ctx.moveTo(currentStroke[i - 1].x, currentStroke[i - 1].y);
-      ctx.lineTo(currentStroke[i].x, currentStroke[i].y);
-    }
-    ctx.stroke();
-  }
+  strokes.forEach(stroke => drawSmoothStroke(stroke));
+  drawSmoothStroke(currentStroke);
 }
 
-// ================= MAIN LOGIC =================
+// ================= ERASE AREA =================
+function eraseAt(x, y) {
+  ctx.save();
+  ctx.globalCompositeOperation = "destination-out";
+  ctx.beginPath();
+  ctx.arc(x, y, 30, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+// ================= MAIN =================
 hands.onResults(results => {
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
     if (currentStroke.length > 0) {
       strokes.push([...currentStroke]);
       currentStroke = [];
     }
-    prevX = null;
-    prevY = null;
     redrawCanvas();
     return;
   }
@@ -84,48 +96,44 @@ hands.onResults(results => {
   const ringPip = lm[14];
   const pinkyPip = lm[18];
 
+  // Palm center (for eraser)
+  const palmX = lm[9].x * canvas.width;
+  const palmY = lm[9].y * canvas.height;
+
   const x = index.x * canvas.width;
   const y = index.y * canvas.height;
 
   // Finger states
-  const indexOpen = isFingerOpen(index, indexPip);
-  const middleOpen = isFingerOpen(middle, middlePip);
-  const ringOpen = isFingerOpen(ring, ringPip);
-  const pinkyOpen = isFingerOpen(pinky, pinkyPip);
-
   const allFingersOpen =
-    indexOpen && middleOpen && ringOpen && pinkyOpen;
+    isFingerOpen(index, indexPip) &&
+    isFingerOpen(middle, middlePip) &&
+    isFingerOpen(ring, ringPip) &&
+    isFingerOpen(pinky, pinkyPip);
 
-  // Pinch distance
   const pinchDistance = Math.hypot(
     index.x - thumb.x,
     index.y - thumb.y
   );
 
-  // ✏️ DRAW (Pinch gesture)
-  if (pinchDistance < 0.05) {
+  // ✏️ DRAW (PINCH)
+  if (pinchDistance < 0.05 && !allFingersOpen) {
     currentStroke.push({ x, y });
-    prevX = x;
-    prevY = y;
+    erasing = false;
   }
 
-  // ✋ ERASE ALL (Open Palm)
+  // ✋ ERASE (OPEN PALM RUB)
   else if (allFingersOpen) {
-    strokes = [];
-    currentStroke = [];
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    prevX = null;
-    prevY = null;
+    erasing = true;
+    eraseAt(palmX, palmY);
   }
 
-  // ✊ STOP DRAWING → SAVE STROKE
+  // ✊ STOP DRAWING
   else {
     if (currentStroke.length > 0) {
       strokes.push([...currentStroke]);
       currentStroke = [];
     }
-    prevX = null;
-    prevY = null;
+    erasing = false;
   }
 
   redrawCanvas();
