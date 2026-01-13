@@ -1,26 +1,26 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Hand Gesture Controller</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8" />
+<title>Gesture Art Interface</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- MediaPipe -->
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+<link rel="stylesheet" href="style.css">
+
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
 </head>
 
 <body>
 
-<h2>🤚 Hand Gesture Controller</h2>
-<p>Pinch = Click | Two Fingers = Scroll</p>
+<div id="ui">
+  <div id="mode">MODE: PATTERN</div>
+</div>
 
 <video class="input_video"></video>
-<canvas class="output_canvas"></canvas>
-
-<button id="testBtn">Test Button (Pinch Click)</button>
+<canvas id="drawCanvas"></canvas>
+<canvas id="fxCanvas"></canvas>
 
 <script src="script.js"></script>
 </body>
