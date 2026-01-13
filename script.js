@@ -73,12 +73,12 @@ function redraw() {
 }
 
 // ================= ERASE FROM MEMORY =================
-function eraseFromStrokes(x, y, radius = 35) {
-  strokes = strokes.map(stroke =>
-    stroke.filter(p => dist(p, { x, y }) > radius)
-  ).filter(stroke => stroke.length > 1);
-}
-
+const eraserGesture =
+  isFingerOpen(index, indexPip) &&
+  isFingerOpen(middle, middlePip) &&
+  isFingerOpen(ring, ringPip) &&
+  isFingerOpen(pinky, pinkyPip) &&
+  dist(index, thumb) > 0.08;
 // ================= MAIN =================
 hands.onResults(results => {
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
