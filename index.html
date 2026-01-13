@@ -7,7 +7,6 @@
 
 <link rel="stylesheet" href="style.css">
 
-<!-- MediaPipe -->
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
@@ -15,7 +14,11 @@
 
 <body>
 
-<div id="ui">
+<div id="startScreen">
+  <button id="startBtn">START GESTURE MODE</button>
+</div>
+
+<div id="ui" hidden>
   <span id="mode">MODE: PATTERN</span>
 </div>
 
