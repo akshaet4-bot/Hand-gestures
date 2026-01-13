@@ -11,18 +11,38 @@ body {
   color: cyan;
 }
 
-/* Camera must be rendered for MediaPipe */
+/* START SCREEN */
+#startScreen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: black;
+  z-index: 10;
+}
+
+#startBtn {
+  padding: 16px 28px;
+  font-size: 16px;
+  border-radius: 30px;
+  border: none;
+  background: cyan;
+  color: black;
+  box-shadow: 0 0 30px cyan;
+}
+
+/* Camera */
 video {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.18;
+  opacity: 0.2;
   z-index: 0;
 }
 
-/* Canvas layers */
 canvas {
   position: fixed;
   inset: 0;
@@ -39,14 +59,9 @@ canvas {
   transform: translateX(-50%);
   padding: 8px 22px;
   border-radius: 20px;
-  background: rgba(0,255,255,0.08);
+  background: rgba(0,255,255,0.1);
   backdrop-filter: blur(14px);
-  border: 1px solid rgba(0,255,255,0.25);
-  box-shadow: 0 0 30px rgba(0,255,255,0.35);
+  border: 1px solid rgba(0,255,255,0.3);
+  box-shadow: 0 0 30px rgba(0,255,255,0.4);
   z-index: 3;
-}
-
-#mode {
-  font-size: 13px;
-  letter-spacing: 1px;
 }
