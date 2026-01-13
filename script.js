@@ -28,11 +28,23 @@ function isFingerOpen(tip, pip) {
   return tip.y < pip.y;
 }
 
-function distance(a, b) {
+function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
 }
 
-// ================= SMOOTH DRAW =================
+// 🧠 Smooth points (removes shaky noise)
+function smoothStroke(points, threshold = 2) {
+  if (points.length < 2) return points;
+  const smooth = [points[0]];
+  for (let i = 1; i < points.length; i++) {
+    if (dist(points[i], smooth[smooth.length - 1]) > threshold) {
+      smooth.push(points[i]);
+    }
+  }
+  return smooth;
+}
+
+// ================= DRAW =================
 function drawSmoothStroke(points) {
   if (points.length < 2) return;
 
@@ -40,15 +52,15 @@ function drawSmoothStroke(points) {
   ctx.moveTo(points[0].x, points[0].y);
 
   for (let i = 1; i < points.length - 1; i++) {
-    const midX = (points[i].x + points[i + 1].x) / 2;
-    const midY = (points[i].y + points[i + 1].y) / 2;
-    ctx.quadraticCurveTo(points[i].x, points[i].y, midX, midY);
+    const mx = (points[i].x + points[i + 1].x) / 2;
+    const my = (points[i].y + points[i + 1].y) / 2;
+    ctx.quadraticCurveTo(points[i].x, points[i].y, mx, my);
   }
   ctx.stroke();
 }
 
 // ================= REDRAW =================
-function redrawCanvas() {
+function redraw() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   ctx.strokeStyle = "black";
@@ -56,29 +68,26 @@ function redrawCanvas() {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  strokes.forEach(stroke => drawSmoothStroke(stroke));
+  strokes.forEach(s => drawSmoothStroke(s));
   drawSmoothStroke(currentStroke);
 }
 
-// ================= ERASE =================
-function eraseAt(x, y) {
-  ctx.save();
-  ctx.globalCompositeOperation = "destination-out";
-  ctx.beginPath();
-  ctx.arc(x, y, 28, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.restore();
+// ================= ERASE FROM MEMORY =================
+function eraseFromStrokes(x, y, radius = 35) {
+  strokes = strokes.map(stroke =>
+    stroke.filter(p => dist(p, { x, y }) > radius)
+  ).filter(stroke => stroke.length > 1);
 }
 
 // ================= MAIN =================
 hands.onResults(results => {
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
     if (isDrawing && currentStroke.length > 0) {
-      strokes.push([...currentStroke]);
+      strokes.push(smoothStroke(currentStroke));
     }
     currentStroke = [];
     isDrawing = false;
-    redrawCanvas();
+    redraw();
     return;
   }
 
@@ -95,31 +104,29 @@ hands.onResults(results => {
   const ringPip = lm[14];
   const pinkyPip = lm[18];
 
-  const x = index.x * canvas.width;
+  // 🔥 FIXED COORDINATES (MATCH PINCH POINT)
+  const x = (1 - index.x) * canvas.width;
   const y = index.y * canvas.height;
 
-  const palmX = lm[9].x * canvas.width;
+  const palmX = (1 - lm[9].x) * canvas.width;
   const palmY = lm[9].y * canvas.height;
 
-  // Fingers open
   const fingersOpen =
     isFingerOpen(index, indexPip) &&
     isFingerOpen(middle, middlePip) &&
     isFingerOpen(ring, ringPip) &&
     isFingerOpen(pinky, pinkyPip);
 
-  // Fingers close together (eraser condition)
   const fingersClose =
-    distance(index, middle) < 0.04 &&
-    distance(middle, ring) < 0.04 &&
-    distance(ring, pinky) < 0.04;
+    dist(index, middle) < 0.045 &&
+    dist(middle, ring) < 0.045 &&
+    dist(ring, pinky) < 0.045;
 
-  const pinchDistance = distance(index, thumb);
+  const pinch = dist(index, thumb);
 
-  // ✏️ DRAW — ONLY WHILE PINCH IS CLOSED
-  if (pinchDistance < 0.045 && !fingersOpen) {
+  // ✏️ DRAW (PINCH)
+  if (pinch < 0.045 && !fingersOpen) {
     if (!isDrawing) {
-      // Start new stroke EXACTLY at pinch point
       currentStroke = [{ x, y }];
       isDrawing = true;
     } else {
@@ -127,26 +134,26 @@ hands.onResults(results => {
     }
   }
 
-  // ✋ ERASE — OPEN PALM + FINGERS CLOSE
+  // ✋ ERASE (OPEN PALM + FINGERS CLOSE)
   else if (fingersOpen && fingersClose) {
     if (isDrawing && currentStroke.length > 0) {
-      strokes.push([...currentStroke]);
+      strokes.push(smoothStroke(currentStroke));
       currentStroke = [];
     }
     isDrawing = false;
-    eraseAt(palmX, palmY);
+    eraseFromStrokes(palmX, palmY);
   }
 
-  // ✊ STOP DRAWING
+  // ✊ STOP
   else {
     if (isDrawing && currentStroke.length > 0) {
-      strokes.push([...currentStroke]);
+      strokes.push(smoothStroke(currentStroke));
     }
     currentStroke = [];
     isDrawing = false;
   }
 
-  redrawCanvas();
+  redraw();
 });
 
 // ================= CAMERA =================
