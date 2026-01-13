@@ -1,22 +1,14 @@
-const video = document.querySelector(".input_video");
-const canvas = document.getElementById("drawCanvas");
-const ctx = canvas.getContext("2d");
-const startBtn = document.getElementById("startBtn");
-const startScreen = document.getElementById("startScreen");
+const videoElement = document.querySelector('.input_video');
+const canvasElement = document.querySelector('.output_canvas');
+const canvasCtx = canvasElement.getContext('2d');
 
-function resize() {
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-}
-window.addEventListener("resize", resize);
-resize();
+let lastScrollY = null;
+let pinchActive = false;
 
-let lastX = null;
-let lastY = null;
-
-/* MediaPipe Hands */
 const hands = new Hands({
-  locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`
+  locateFile: (file) => {
+    return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+  }
 });
 
 hands.setOptions({
@@ -28,49 +20,57 @@ hands.setOptions({
 
 hands.onResults(onResults);
 
-/* START CAMERA AFTER USER CLICK */
-startBtn.addEventListener("click", () => {
-  startScreen.style.display = "none";
-
-  const camera = new Camera(video, {
-    onFrame: async () => {
-      await hands.send({ image: video });
-    },
-    width: 640,
-    height: 480
-  });
-
-  camera.start();
+const camera = new Camera(videoElement, {
+  onFrame: async () => {
+    await hands.send({ image: videoElement });
+  },
+  width: 360,
+  height: 480
 });
 
-/* MAIN DRAW FUNCTION */
+camera.start();
+
 function onResults(results) {
-  if (!results.multiHandLandmarks) {
-    lastX = lastY = null;
-    return;
+  canvasCtx.save();
+  canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+  canvasCtx.drawImage(results.image, 0, 0, canvasElement.width, canvasElement.height);
+
+  if (results.multiHandLandmarks) {
+    for (const landmarks of results.multiHandLandmarks) {
+
+      drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, { color: '#00FF00', lineWidth: 3 });
+      drawLandmarks(canvasCtx, landmarks, { color: '#FF0000', lineWidth: 2 });
+
+      const indexTip = landmarks[8];
+      const middleTip = landmarks[12];
+      const thumbTip = landmarks[4];
+
+      // 👉 TWO FINGER SCROLL
+      if (lastScrollY !== null) {
+        const deltaY = (indexTip.y + middleTip.y) / 2 - lastScrollY;
+        window.scrollBy(0, deltaY * 500);
+      }
+      lastScrollY = (indexTip.y + middleTip.y) / 2;
+
+      // 🤏 PINCH CLICK
+      const pinchDistance = Math.hypot(
+        indexTip.x - thumbTip.x,
+        indexTip.y - thumbTip.y
+      );
+
+      if (pinchDistance < 0.04 && !pinchActive) {
+        pinchActive = true;
+        document.elementFromPoint(
+          indexTip.x * window.innerWidth,
+          indexTip.y * window.innerHeight
+        )?.click();
+      }
+
+      if (pinchDistance > 0.06) {
+        pinchActive = false;
+      }
+    }
   }
 
-  const landmarks = results.multiHandLandmarks[0];
-  const indexFinger = landmarks[8];
-
-  // Convert to screen coordinates
-  const x = indexFinger.x * canvas.width;
-  const y = indexFinger.y * canvas.height;
-
-  ctx.strokeStyle = "cyan";
-  ctx.lineWidth = 4;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.shadowColor = "cyan";
-  ctx.shadowBlur = 10;
-
-  if (lastX !== null) {
-    ctx.beginPath();
-    ctx.moveTo(lastX, lastY);
-    ctx.lineTo(x, y);
-    ctx.stroke();
-  }
-
-  lastX = x;
-  lastY = y;
+  canvasCtx.restore();
 }
