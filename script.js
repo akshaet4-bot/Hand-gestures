@@ -5,11 +5,13 @@ const ctx = canvas.getContext("2d");
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 
-// Drawing state
+// ================= DRAWING MEMORY =================
+let strokes = [];        // All saved drawings
+let currentStroke = []; // Current air-writing stroke
 let prevX = null;
 let prevY = null;
 
-// MediaPipe Hands
+// ================= MEDIAPIPE HANDS =================
 const hands = new Hands({
   locateFile: file =>
     `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`
@@ -22,18 +24,50 @@ hands.setOptions({
   minTrackingConfidence: 0.7
 });
 
-// Helper: check finger open
+// ================= HELPERS =================
 function isFingerOpen(tip, pip) {
   return tip.y < pip.y;
 }
 
-hands.onResults(results => {
-  // ❌ DO NOT clear canvas every frame (or drawing will vanish)
-  // ctx.clearRect(0, 0, canvas.width, canvas.height);
+// ================= REDRAW CANVAS =================
+function redrawCanvas() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 4;
+  ctx.lineCap = "round";
+
+  // Draw saved strokes
+  strokes.forEach(stroke => {
+    ctx.beginPath();
+    for (let i = 1; i < stroke.length; i++) {
+      ctx.moveTo(stroke[i - 1].x, stroke[i - 1].y);
+      ctx.lineTo(stroke[i].x, stroke[i].y);
+    }
+    ctx.stroke();
+  });
+
+  // Draw current stroke
+  if (currentStroke.length > 1) {
+    ctx.beginPath();
+    for (let i = 1; i < currentStroke.length; i++) {
+      ctx.moveTo(currentStroke[i - 1].x, currentStroke[i - 1].y);
+      ctx.lineTo(currentStroke[i].x, currentStroke[i].y);
+    }
+    ctx.stroke();
+  }
+}
+
+// ================= MAIN LOGIC =================
+hands.onResults(results => {
   if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+    if (currentStroke.length > 0) {
+      strokes.push([...currentStroke]);
+      currentStroke = [];
+    }
     prevX = null;
     prevY = null;
+    redrawCanvas();
     return;
   }
 
@@ -70,34 +104,34 @@ hands.onResults(results => {
 
   // ✏️ DRAW (Pinch gesture)
   if (pinchDistance < 0.05) {
-    if (prevX !== null) {
-      ctx.beginPath();
-      ctx.moveTo(prevX, prevY);
-      ctx.lineTo(x, y);
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 4;
-      ctx.lineCap = "round";
-      ctx.stroke();
-    }
+    currentStroke.push({ x, y });
     prevX = x;
     prevY = y;
   }
 
-  // ✋ ERASE (Open Palm)
+  // ✋ ERASE ALL (Open Palm)
   else if (allFingersOpen) {
+    strokes = [];
+    currentStroke = [];
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     prevX = null;
     prevY = null;
   }
 
-  // ✊ STOP DRAWING
+  // ✊ STOP DRAWING → SAVE STROKE
   else {
+    if (currentStroke.length > 0) {
+      strokes.push([...currentStroke]);
+      currentStroke = [];
+    }
     prevX = null;
     prevY = null;
   }
+
+  redrawCanvas();
 });
 
-// Camera start
+// ================= CAMERA =================
 const camera = new Camera(video, {
   onFrame: async () => {
     await hands.send({ image: video });
